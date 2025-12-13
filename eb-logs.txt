@@ -1,0 +1,2 @@
+Logs were saved to /Users/bryanesslinger/Desktop/the-combine/.elasticbeanstalk/logs/251213_140912
+Updated symlink at /Users/bryanesslinger/Desktop/the-combine/.elasticbeanstalk/logs/latest

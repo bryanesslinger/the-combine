@@ -279,9 +279,11 @@ async function fetchESPN(playerId) {
     
     // Execute Python script with player ID and optional player name
     // If we have the name, pass it to help construct the proper ESPN URL
+    // Use full path to python3 and handle PATH issues on AWS EB
+    const pythonPath = process.platform === 'linux' ? '/usr/bin/python3' : 'python3';
     const command = playerName 
-      ? `python3 "${scriptPath}" "${playerId}" "${playerName}"`
-      : `python3 "${scriptPath}" "${playerId}"`;
+      ? `${pythonPath} "${scriptPath}" "${playerId}" "${playerName}"`
+      : `${pythonPath} "${scriptPath}" "${playerId}"`;
     
     const { stdout, stderr } = await execAsync(command);
     
