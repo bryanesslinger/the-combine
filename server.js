@@ -36,6 +36,9 @@ app.use(cors());
 // Parse JSON request bodies - Claude sends structured data
 app.use(express.json());
 
+// Serve static files (logo, images, etc.)
+app.use(express.static(__dirname));
+
 /**
  * TOOL DEFINITIONS
  * 
