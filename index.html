@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Research Chat</title>
+    <style>
+        /**
+         * Minimal CSS for clean, functional chat UI
+         * No frameworks - just vanilla CSS for simplicity
+         */
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Chat container - centered card design */
+        .chat-container {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* Header with title */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        /* Chat messages area - scrollable */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        /* Individual message bubble */
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* User messages align right, assistant left */
+        .message.user {
+            justify-content: flex-end;
+        }
+        
+        .message.assistant {
+            justify-content: flex-start;
+        }
+        
+        /* Message bubble styling */
+        .message-bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            line-height: 1.5;
+        }
+        
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.assistant .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+        
+        /* Input area - fixed at bottom */
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Text input */
+        #messageInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+        
+        /* Send button */
+        #sendButton {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        #sendButton:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        #sendButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Error message styling */
+        .error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🏈 NFL Research Chat</h1>
+            <p>Ask me anything about NFL players, stats, and games</p>
+        </div>
+        
+        <!-- Messages display area -->
+        <div class="messages" id="messages">
+            <!-- Welcome message -->
+            <div class="message assistant">
+                <div class="message-bubble">
+                    Hi! I'm your NFL research assistant. I can answer questions about players, 
+                    stats, and games using live ESPN data. Try asking: "How many yards did Tyreek Hill have last game?"
+                </div>
+            </div>
+        </div>
+        
+        <!-- Input area -->
+        <div class="input-area">
+            <input 
+                type="text" 
+                id="messageInput" 
+                placeholder="Ask about NFL players, stats, games..."
+                autocomplete="off"
+            />
+            <button id="sendButton">Send</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Vanilla JavaScript Chat Client
+         * 
+         * Why vanilla JS? No build step needed - just open HTML file and it works.
+         * Perfect for prototyping before we add complexity.
+         */
+        
+        // DOM element references - cache these so we don't query repeatedly
+        const messagesDiv = document.getElementById('messages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+        
+        // Server endpoint - adjust if your server runs on different port
+        const API_URL = 'http://localhost:3000/api/chat';
+        
+        /**
+         * Function: addMessage
+         * 
+         * Why separate function? Keeps code DRY (Don't Repeat Yourself).
+         * We use this to add both user and assistant messages.
+         * 
+         * @param {string} text - The message text to display
+         * @param {string} role - 'user' or 'assistant'
+         * @param {boolean} isError - If true, styles as error message
+         */
+        function addMessage(text, role, isError = false) {
+            // Create message container div
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            // Create message bubble
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            if (isError) {
+                bubble.classList.add('error');
+            }
+            bubble.textContent = text;
+            
+            // Append bubble to message, message to container
+            messageDiv.appendChild(bubble);
+            messagesDiv.appendChild(messageDiv);
+            
+            // Auto-scroll to bottom so user sees latest message
+            // scrollIntoView with smooth behavior provides nice UX
+            messageDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        
+        /**
+         * Function: showLoading
+         * 
+         * Adds a loading indicator while waiting for server response.
+         * User gets visual feedback that their request is processing.
+         */
+        function showLoading() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message assistant';
+            loadingDiv.id = 'loading-indicator';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble';
+            bubble.innerHTML = '<div class="loading"></div>';
+            
+            loadingDiv.appendChild(bubble);
+            messagesDiv.appendChild(loadingDiv);
+            loadingDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        /**
+         * Function: hideLoading
+         * 
+         * Removes loading indicator once response arrives.
+         */
+        function hideLoading() {
+            const loading = document.getElementById('loading-indicator');
+            if (loading) {
+                loading.remove();
+            }
+        }
+        
+        /**
+         * Function: sendMessage
+         * 
+         * Main function that handles sending user message to server.
+         * 
+         * Why async/await? fetch() returns a Promise, and we need to wait
+         * for the server response before updating UI.
+         */
+        async function sendMessage() {
+            // Get user input and trim whitespace
+            const userMessage = messageInput.value.trim();
+            
+            // Validate - don't send empty messages
+            if (!userMessage) {
+                return;
+            }
+            
+            // Add user message to chat immediately (optimistic UI update)
+            // This gives instant feedback, then we show loading while waiting
+            addMessage(userMessage, 'user');
+            
+            // Clear input so user can type next message
+            messageInput.value = '';
+            
+            // Disable send button to prevent double-sending
+            sendButton.disabled = true;
+            
+            // Show loading indicator
+            showLoading();
+            
+            try {
+                // Send POST request to our server endpoint
+                // fetch() is native browser API (no dependencies needed)
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json', // Tell server we're sending JSON
+                    },
+                    body: JSON.stringify({
+                        message: userMessage // Server expects { message: "..." }
+                    })
+                });
+                
+                // Check if request succeeded
+                // HTTP 200-299 means success, anything else is an error
+                if (!response.ok) {
+                    // Extract error message from response
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                }
+                
+                // Parse JSON response
+                // Server returns { response: "Claude's answer here" }
+                const data = await response.json();
+                
+                // Hide loading indicator
+                hideLoading();
+                
+                // Add assistant's response to chat
+                if (data.response) {
+                    addMessage(data.response, 'assistant');
+                } else {
+                    throw new Error('No response from server');
+                }
+                
+            } catch (error) {
+                // Error handling - catch network errors, server errors, etc.
+                console.error('Error sending message:', error);
+                
+                hideLoading();
+                
+                // Show user-friendly error message
+                addMessage(
+                    `Sorry, I encountered an error: ${error.message}. Please try again.`,
+                    'assistant',
+                    true // Style as error
+                );
+            } finally {
+                // Always re-enable send button, even if error occurred
+                // This ensures UI doesn't get stuck in disabled state
+                sendButton.disabled = false;
+                
+                // Refocus input so user can immediately type again
+                messageInput.focus();
+            }
+        }
+        
+        // Event listeners - connect user actions to our functions
+        
+        // Click send button
+        sendButton.addEventListener('click', sendMessage);
+        
+        // Press Enter in input field (common UX pattern)
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // shift+Enter could be used for multi-line in future
+                e.preventDefault(); // Prevent form submission
+                sendMessage();
+            }
+        });
+        
+        // Focus input when page loads so user can start typing immediately
+        messageInput.focus();
+    </script>
+</body>
+</html>
+
