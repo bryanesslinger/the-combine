@@ -238,15 +238,13 @@ async function fetchPlayerStats(playerId) {
 /**
  * ESPN-specific stats fetching implementation
  * 
- * This calls a Python script to fetch player stats.
- * Why Python? ESPN's API structure is complex, and the espn-api library
- * (or direct API exploration) is easier in Python. We call it from Node.js.
+ * This calls a Node.js script to fetch player stats by scraping ESPN game logs.
  * 
- * Architecture: Node.js → Python script → ESPN API → JSON → Node.js → Claude
+ * Architecture: Node.js → Node.js script → ESPN HTML → JSON → Node.js → Claude
  */
 async function fetchESPN(playerId) {
   try {
-    console.log(`[ESPN] Fetching player ${playerId} via Python script...`);
+    console.log(`[ESPN] Fetching player ${playerId} via Node.js script...`);
     
     // Try to get player name from lookup table to construct proper ESPN URL
     // This helps with ESPN's URL slug format
@@ -274,27 +272,25 @@ async function fetchESPN(playerId) {
     };
     playerName = lookupTable[playerId] || null;
     
-    // Get the path to our Python script
-    const scriptPath = path.join(__dirname, 'fetch_player_stats.py');
+    // Get the path to our Node.js script
+    const scriptPath = path.join(__dirname, 'fetch_player_stats.js');
     
-    // Execute Python script with player ID and optional player name
+    // Execute Node.js script with player ID and optional player name
     // If we have the name, pass it to help construct the proper ESPN URL
-    // Use full path to python3 and handle PATH issues on AWS EB
-    const pythonPath = process.platform === 'linux' ? '/usr/bin/python3' : 'python3';
+    const nodePath = process.execPath; // Use the same Node.js that's running the server
     const command = playerName 
-      ? `${pythonPath} "${scriptPath}" "${playerId}" "${playerName}"`
-      : `${pythonPath} "${scriptPath}" "${playerId}"`;
+      ? `"${nodePath}" "${scriptPath}" "${playerId}" "${playerName}"`
+      : `"${nodePath}" "${scriptPath}" "${playerId}"`;
     
     const { stdout, stderr } = await execAsync(command);
     
-    // Python script outputs JSON to stdout
-    // stderr may contain warnings (like urllib3 SSL warnings) - we can ignore those
-    // Only log stderr if it's not just warnings
-    if (stderr && !stderr.includes('NotOpenSSLWarning')) {
-      console.log(`[ESPN] Python stderr: ${stderr}`);
+    // Node.js script outputs JSON to stdout
+    // Log stderr if there are any errors
+    if (stderr) {
+      console.log(`[ESPN] Script stderr: ${stderr}`);
     }
     
-    // Parse JSON from stdout (Python script prints JSON there)
+    // Parse JSON from stdout (script prints JSON there)
     // stdout.trim() removes any trailing newlines
     const result = JSON.parse(stdout.trim());
     
@@ -302,12 +298,12 @@ async function fetchESPN(playerId) {
     return result;
     
   } catch (error) {
-    // Handle errors: Python script failed, JSON parse failed, etc.
+    // Handle errors: Node.js script failed, JSON parse failed, etc.
     console.error(`[ESPN] Error fetching player ${playerId}:`, error.message);
     
     // If stdout exists but JSON parse failed, log it
     if (error.stdout) {
-      console.error(`[ESPN] Python output: ${error.stdout}`);
+      console.error(`[ESPN] Script output: ${error.stdout}`);
     }
     
     return {
